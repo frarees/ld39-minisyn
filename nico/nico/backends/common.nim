@@ -76,11 +76,11 @@ var targetScreenHeight* = 128
 var fixedScreenSize* = true
 var integerScreenScale* = false
 
-var screenWidth* = 128
-var screenHeight* = 128
+var screenWidth*: cint = 128
+var screenHeight*: cint = 128
 
-var screenPaddingX* = 0
-var screenPaddingY* = 0
+var screenPaddingX*: cint = 0
+var screenPaddingY*: cint = 0
 
 var keymap*: array[NicoButton, seq[int]]
 

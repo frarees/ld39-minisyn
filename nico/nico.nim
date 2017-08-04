@@ -4,7 +4,7 @@ when defined(js):
   import nico.backends.js as backend
   export convertToConsoleLoggable
 else:
-  import nico.backends.sdl2 as backend
+  import nico.backends.sdl2b as backend
 
 when defined(sdlmixer):
   export initMixer

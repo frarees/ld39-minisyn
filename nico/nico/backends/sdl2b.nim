@@ -8,8 +8,6 @@ import nico.ringbuffer
 
 import math
 
-import sdl2.sdl
-
 import stb_image/read as stbi
 import stb_image/write as stbiw
 
@@ -21,7 +19,11 @@ import osproc
 
 import parseCfg
 
-export Scancode
+import sdl2
+import sdl2.gamecontroller
+import sdl2.joystick
+export sdl2.Scancode
+
 import streams
 import strutils
 
@@ -64,30 +66,30 @@ converter toInt(x: Scancode): int =
   x.int
 
 keymap = [
-  @[SCANCODE_LEFT.int,  SCANCODE_A.int], # left
-  @[SCANCODE_RIGHT.int, SCANCODE_D.int], # right
-  @[SCANCODE_UP.int,    SCANCODE_W.int], # up
-  @[SCANCODE_DOWN.int,  SCANCODE_S.int], # down
-  @[SCANCODE_Z.int], # A
-  @[SCANCODE_X.int], # B
-  @[SCANCODE_LSHIFT.int, SCANCODE_RSHIFT.int], # X
-  @[SCANCODE_C.int], # Y
-  @[SCANCODE_F.int], # L1
-  @[SCANCODE_G.int], # L2
-  @[SCANCODE_V.int], # R1
-  @[SCANCODE_B.int], # R2
-  @[SCANCODE_RETURN.int], # Start
-  @[SCANCODE_ESCAPE.int, SCANCODE_BACKSPACE.int], # Back
+  @[SDL_SCANCODE_LEFT.int,  SDL_SCANCODE_A.int], # left
+  @[SDL_SCANCODE_RIGHT.int, SDL_SCANCODE_D.int], # right
+  @[SDL_SCANCODE_UP.int,    SDL_SCANCODE_W.int], # up
+  @[SDL_SCANCODE_DOWN.int,  SDL_SCANCODE_S.int], # down
+  @[SDL_SCANCODE_Z.int], # A
+  @[SDL_SCANCODE_X.int], # B
+  @[SDL_SCANCODE_LSHIFT.int, SDL_SCANCODE_RSHIFT.int], # X
+  @[SDL_SCANCODE_C.int], # Y
+  @[SDL_SCANCODE_F.int], # L1
+  @[SDL_SCANCODE_G.int], # L2
+  @[SDL_SCANCODE_V.int], # R1
+  @[SDL_SCANCODE_B.int], # R2
+  @[SDL_SCANCODE_RETURN.int], # Start
+  @[SDL_SCANCODE_ESCAPE.int, SDL_SCANCODE_BACKSPACE.int], # Back
 ]
 
-var window: Window
+var window: WindowPtr
 
 var eventFunc: proc(event: Event): bool
-var render: Renderer
-var hwCanvas: Texture
-var swCanvas32: sdl.Surface
-var srcRect: sdl.Rect
-var dstRect: sdl.Rect
+var render: RendererPtr
+var hwCanvas: TexturePtr
+var swCanvas32: sdl2.SurfacePtr
+var srcRect: sdl2.Rect
+var dstRect: sdl2.Rect
 
 var current_time = getTicks()
 var acc = 0.0
@@ -143,7 +145,7 @@ proc resize*(w,h: int) =
       (h.float / targetScreenHeight.float),
     ))
 
-  var displayW,displayH: int
+  var displayW,displayH: cint
 
   if fixedScreenSize:
     displayW = (targetScreenWidth.float * screenScale).int
@@ -177,8 +179,10 @@ proc resize*(w,h: int) =
   # resize the buffers
   debug screenPaddingX, screenPaddingY
 
-  srcRect = sdl.Rect(x:0,y:0,w:screenWidth,h:screenHeight)
-  dstRect = sdl.Rect(x:screenPaddingX,y:screenPaddingY,w:displayW, h:displayH)
+  var sx: cint = 0
+  var sy: cint = 0
+  srcRect = (x:sx,y:sy,w:screenWidth,h:screenHeight)
+  dstRect = (x:screenPaddingX,y:screenPaddingY,w:displayW, h:displayH)
 
   debug "srcRect: ", srcRect
   debug "dstRect: ", dstRect
@@ -188,7 +192,7 @@ proc resize*(w,h: int) =
   clipMaxX = screenWidth - 1
   clipMaxY = screenHeight - 1
 
-  hwCanvas = render.createTexture(PIXELFORMAT_RGBA8888, TEXTUREACCESS_STREAMING, screenWidth, screenHeight)
+  hwCanvas = render.createTexture(SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, screenWidth, screenHeight)
   swCanvas = newSurface(screenWidth,screenHeight)
 
   swCanvas32 = createRGBSurface(0, screenWidth, screenHeight, 32, 0x000000ff'u32, 0x0000ff00'u32, 0x00ff0000'u32, 0xff000000'u32)
@@ -206,16 +210,16 @@ proc resize*() =
     return
   debug "resize() called"
   var windowW, windowH: cint
-  window.getWindowSize(windowW.addr, windowH.addr)
+  window.getSize(windowW, windowH)
   resize(windowW,windowH)
 
 proc createWindow*(title: string, w,h: int, scale: int = 2, fullscreen: bool = false) =
   debug "Creating window"
   when defined(android):
-    window = createWindow(title.cstring, WINDOWPOS_UNDEFINED, WINDOWPOS_UNDEFINED, (w * scale).cint, (h * scale).cint, WINDOW_FULLSCREEN)
+    window = createWindow(title.cstring, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, (w * scale).cint, (h * scale).cint, SDL_WINDOW_FULLSCREEN)
   else:
-    window = createWindow(title.cstring, WINDOWPOS_UNDEFINED, WINDOWPOS_UNDEFINED, (w * scale).cint, (h * scale).cint, 
-      (WINDOW_RESIZABLE or (if fullscreen: WINDOW_FULLSCREEN_DESKTOP else: 0)).uint32)
+    window = createWindow(title.cstring, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, (w * scale).cint, (h * scale).cint, 
+      (SDL_WINDOW_RESIZABLE or (if fullscreen: SDL_WINDOW_FULLSCREEN_DESKTOP else: 0)).uint32)
 
   if window == nil:
     debug "error creating window"
@@ -227,11 +231,11 @@ proc createWindow*(title: string, w,h: int, scale: int = 2, fullscreen: bool = f
   discard setHint("SDL_RENDER_SCALE_QUALITY", "0")
 
   var displayW, displayH: cint
-  window.getWindowSize(displayW.addr, displayH.addr)
+  window.getSize(displayW, displayH)
   debug "initial resize: ", displayW, displayH
   resize(displayW,displayH)
 
-  discard showCursor(0)
+  discard showCursor(false)
 
 proc readFile*(filename: string): string =
   debug "readFile: ", filename
@@ -240,17 +244,17 @@ proc readFile*(filename: string): string =
   if fp == nil:
     raise newException(IOError, "Unable to open file: " & filename)
 
-  let size = rwSize(fp)
+  let size = size(fp)
   debug size
   var buffer = newSeq[uint8](size)
 
   var offset = 0
   while offset < size:
-    let r = rwRead(fp, buffer[offset].addr, 1, 1.csize)
+    let r = read(fp, buffer[offset].addr, 1, 1.csize)
     offset += r
     if r == 0:
       break
-  discard rwClose(fp)
+  discard close(fp)
 
   result = cast[string](buffer)
 
@@ -290,15 +294,15 @@ proc present*() =
 
   convertToABGR(swCanvas, swCanvas32.pixels, swCanvas32.pitch, screenWidth, screenHeight)
 
-  if updateTexture(hwCanvas, nil, swCanvas32.pixels, swCanvas32.pitch) != 0:
-    debug(sdl.getError())
+  if updateTexture(hwCanvas, nil, swCanvas32.pixels, swCanvas32.pitch) != SdlSuccess:
+    debug(sdl2.getError())
 
   # copy hwCanvas to screen
-  discard render.setRenderDrawColor(5,5,10,255)
-  discard render.renderClear()
-  if render.renderCopy(hwCanvas, srcRect.addr, dstRect.addr) != 0:
-    debug(sdl.getError())
-  render.renderPresent()
+  discard render.setDrawColor(5,5,10,255)
+  discard render.clear()
+  if render.copy(hwCanvas, srcRect.addr, dstRect.addr) != SdlSuccess:
+    debug(sdl2.getError())
+  render.present()
 
 proc flip*() =
   present()
@@ -407,16 +411,16 @@ proc setKeyMap*(mapstr: string) =
 proc setFullscreen*(fullscreen: bool) =
   if fullscreen:
     debug "setting fullscreen"
-    discard window.setWindowFullscreen(WINDOW_FULLSCREEN_DESKTOP)
+    discard window.setFullscreen(SDL_WINDOW_FULLSCREEN_DESKTOP)
   else:
     debug "setting windowed"
-    discard window.setWindowFullscreen(0)
+    discard window.setFullscreen(0)
 
 proc getFullscreen*(): bool =
-  return (window.getWindowFlags() and WINDOW_FULLSCREEN_DESKTOP) != 0
+  return (window.getFlags() and SDL_WINDOW_FULLSCREEN_DESKTOP) != 0
 
 proc appHandleEvent(evt: Event) =
-  if evt.kind == Quit:
+  if evt.kind == QuitEvent:
     keepRunning = false
 
   elif evt.kind == APP_WILLENTERBACKGROUND:
@@ -426,7 +430,7 @@ proc appHandleEvent(evt: Event) =
   elif evt.kind == APP_DIDENTERFOREGROUND:
     debug "resumed"
     var w,h: cint
-    window.getWindowSize(w.addr,h.addr)
+    window.getSize(w,h)
     resize(w,h)
     current_time = getTicks()
     focused = true
@@ -435,18 +439,18 @@ proc appHandleEvent(evt: Event) =
     mouseWheelState = evt.wheel.y
 
   elif evt.kind == MouseButtonDown:
-    discard captureMouse(true)
+    discard captureMouse(True32)
     if evt.button.button < 4:
       mouseButtonsDown[evt.button.button-1] = true
       mouseButtons[evt.button.button-1] = 1
 
   elif evt.kind == MouseButtonUp:
     if evt.button.button < 4:
-      discard captureMouse(false)
+      discard captureMouse(False32)
       mouseButtonsDown[evt.button.button-1] = false
 
   elif evt.kind == MouseMotion:
-    if evt.motion.which != TOUCH_MOUSEID:
+    if evt.motion.which != SDL_TOUCH_MOUSEID:
       mouseDetected = true
     mouseX = ((evt.motion.x - screenPaddingX).float / screenScale.float).int
     mouseY = ((evt.motion.y - screenPaddingY).float / screenScale.float).int
@@ -470,7 +474,7 @@ proc appHandleEvent(evt: Event) =
     for i,v in mpairs(controllers):
       if v.id == evt.cdevice.which:
         if v.sdlController != nil:
-          v.sdlController.gameControllerClose()
+          v.sdlController.close()
         indexToRemove = i
         break
     if indexToRemove > -1:
@@ -483,29 +487,29 @@ proc appHandleEvent(evt: Event) =
     for controller in mitems(controllers):
       if controller.id == evt.cbutton.which:
         case evt.cbutton.button.GameControllerButton:
-        of CONTROLLER_BUTTON_A:
+        of SDL_CONTROLLER_BUTTON_A:
           controller.setButtonState(pcA, down)
-        of CONTROLLER_BUTTON_B:
+        of SDL_CONTROLLER_BUTTON_B:
           controller.setButtonState(pcB, down)
-        of CONTROLLER_BUTTON_X:
+        of SDL_CONTROLLER_BUTTON_X:
           controller.setButtonState(pcX, down)
-        of CONTROLLER_BUTTON_Y:
+        of SDL_CONTROLLER_BUTTON_Y:
           controller.setButtonState(pcY, down)
-        of CONTROLLER_BUTTON_START:
+        of SDL_CONTROLLER_BUTTON_START:
           controller.setButtonState(pcStart, down)
-        of CONTROLLER_BUTTON_BACK:
+        of SDL_CONTROLLER_BUTTON_BACK:
           controller.setButtonState(pcBack, down)
-        of CONTROLLER_BUTTON_LEFTSHOULDER:
+        of SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
           controller.setButtonState(pcL1, down)
-        of CONTROLLER_BUTTON_RIGHTSHOULDER:
+        of SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
           controller.setButtonState(pcR1, down)
-        of CONTROLLER_BUTTON_DPAD_UP:
+        of SDL_CONTROLLER_BUTTON_DPAD_UP:
           controller.setButtonState(pcUp, down)
-        of CONTROLLER_BUTTON_DPAD_DOWN:
+        of SDL_CONTROLLER_BUTTON_DPAD_DOWN:
           controller.setButtonState(pcDown, down)
-        of CONTROLLER_BUTTON_DPAD_LEFT:
+        of SDL_CONTROLLER_BUTTON_DPAD_LEFT:
           controller.setButtonState(pcLeft, down)
-        of CONTROLLER_BUTTON_DPAD_RIGHT:
+        of SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
           controller.setButtonState(pcRight, down)
         else:
           discard
@@ -516,17 +520,17 @@ proc appHandleEvent(evt: Event) =
       if controller.id == evt.caxis.which:
         let value = evt.caxis.value.float / int16.high.float
         case evt.caxis.axis.GameControllerAxis:
-        of CONTROLLER_AXIS_LEFTX:
+        of SDL_CONTROLLER_AXIS_LEFTX:
           controller.setAxisValue(pcXAxis, value)
-        of CONTROLLER_AXIS_LEFTY:
+        of SDL_CONTROLLER_AXIS_LEFTY:
           controller.setAxisValue(pcYAxis, value)
-        of CONTROLLER_AXIS_RIGHTX:
+        of SDL_CONTROLLER_AXIS_RIGHTX:
           controller.setAxisValue(pcXAxis2, value)
-        of CONTROLLER_AXIS_RIGHTY:
+        of SDL_CONTROLLER_AXIS_RIGHTY:
           controller.setAxisValue(pcYAxis2, value)
-        of CONTROLLER_AXIS_TRIGGERLEFT:
+        of SDL_CONTROLLER_AXIS_TRIGGERLEFT:
           controller.setAxisValue(pcLTrigger, value)
-        of CONTROLLER_AXIS_TRIGGERRIGHT:
+        of SDL_CONTROLLER_AXIS_TRIGGERRIGHT:
           controller.setAxisValue(pcRTrigger, value)
         else:
           discard
@@ -535,11 +539,11 @@ proc appHandleEvent(evt: Event) =
   elif evt.kind == WindowEvent:
     if evt.window.event == WindowEvent_Resized:
       debug "resize event"
-      debug("padding", evt.window.padding1.int, evt.window.padding2.int, evt.window.padding3.int, evt.window.data1, evt.window.data2)
+      # debug("padding", evt.window.pad1, evt.window.pad2, evt.window.pad3, evt.window.data1, evt.window.data2)
       resize(evt.window.data1, evt.window.data2)
       discard render.setRenderTarget(nil)
-      discard render.setRenderDrawColor(0,0,0,255)
-      discard render.renderClear()
+      discard render.setDrawColor(0,0,0,255)
+      discard render.clear()
     elif evt.window.event == WindowEvent_Size_Changed:
       debug "size changed event"
     elif evt.window.event == WindowEvent_FocusLost:
@@ -555,18 +559,18 @@ proc appHandleEvent(evt: Event) =
     if sym == K_AC_BACK:
       controllers[0].setButtonState(pcBack, down)
 
-    elif sym == K_q and down and (int16(evt.key.keysym.mods) and int16(KMOD_CTRL)) != 0:
+    elif sym == K_q and down and (int16(evt.key.keysym.modstate) and int16(KMOD_CTRL)) != 0:
       # ctrl+q to quit
       keepRunning = false
 
-    elif sym == K_f and not down and (int16(evt.key.keysym.mods) and int16(KMOD_CTRL)) != 0:
+    elif sym == K_f and not down and (int16(evt.key.keysym.modstate) and int16(KMOD_CTRL)) != 0:
       if getFullscreen():
         setFullscreen(false)
       else:
         setFullscreen(true)
       return
 
-    elif sym == K_return and not down and (int16(evt.key.keysym.mods) and int16(KMOD_ALT)) != 0:
+    elif sym == K_return and not down and (int16(evt.key.keysym.modstate) and int16(KMOD_ALT)) != 0:
       if getFullscreen():
         setFullscreen(false)
       else:
@@ -575,7 +579,7 @@ proc appHandleEvent(evt: Event) =
 
     elif sym == K_m and down:
       when not defined(emscripten):
-        if (int16(evt.key.keysym.mods) and int16(KMOD_CTRL)) != 0:
+        if (int16(evt.key.keysym.modstate) and int16(KMOD_CTRL)) != 0:
           muteAudio = not muteAudio
           if muteAudio:
             mute()
@@ -600,7 +604,7 @@ proc appHandleEvent(evt: Event) =
       elif system.hostOS == "linux":
         discard startProcess("xdg-open", writePath, [writePath], nil, {poUsePath})
 
-    if not evt.key.repeat != 0:
+    if not evt.key.repeat != false:
       for btn,btnScancodes in keymap:
         for btnScancode in btnScancodes:
           if scancode == btnScancode:
@@ -608,7 +612,7 @@ proc appHandleEvent(evt: Event) =
 
 proc checkInput() =
   var evt: Event
-  while pollEvent(evt.addr) == 1:
+  while pollEvent(evt) == True32:
     if eventFunc != nil:
       let handled = eventFunc(evt)
       if handled:
@@ -616,7 +620,7 @@ proc checkInput() =
     appHandleEvent(evt)
 
 proc setScreenSize*(w,h: int) =
-  window.setWindowSize(w,h)
+  window.setSize(w,h)
   resize()
 
 proc step*() {.cdecl.} =
@@ -656,16 +660,16 @@ proc step*() {.cdecl.} =
     #delay(if focused: 0 else: 10)
 
 proc getPerformanceCounter*(): uint64 {.inline.} =
-  return sdl.getPerformanceCounter()
+  return sdl2.getPerformanceCounter()
 
 proc getPerformanceFrequency*(): uint64 {.inline.} =
-  return sdl.getPerformanceFrequency()
+  return sdl2.getPerformanceFrequency()
 
 proc setWindowTitle*(title: string) =
-  window.setWindowTitle(title)
+  window.setTitle(title)
 
-proc getUnmappedJoysticks*(): seq[Joystick] =
-  result = newSeq[Joystick]()
+proc getUnmappedJoysticks*(): seq[JoystickPtr] =
+  result = newSeq[JoystickPtr]()
   let n = numJoysticks()
   for i in 0..<n:
     if not isGameController(i):
@@ -705,14 +709,14 @@ proc getConfigValue*(section, key: string): string =
 proc init*(org: string, app: string) =
   discard setHint("SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
 
-  if sdl.init(INIT_EVERYTHING) != 0:
-    debug sdl.getError()
+  if sdl2.init(INIT_EVERYTHING) != SdlSuccess:
+    debug sdl2.getError()
     quit(1)
 
   debug "SDL initialized"
 
   #addQuitProc(proc() {.noconv.} =
-  #  sdl.quit()
+  #  sdl2.quit()
   #)
 
   # add keyboard controller
@@ -721,16 +725,17 @@ proc init*(org: string, app: string) =
     controllers.add(newNicoController(-1))
 
     debug "get base path: "
-    basePath = $sdl.getBasePath()
+    basePath = $sdl2.getBasePath()
     debug "basePath: ", basePath
 
     assetPath = basePath & "/assets/"
 
-    writePath = $sdl.getPrefPath(org,app)
+    writePath = $sdl2.getPrefPath(org,app)
     debug "writePath: ", writePath
 
-    discard gameControllerAddMappingsFromFile(basePath & "/assets/gamecontrollerdb.txt")
-    discard gameControllerAddMappingsFromFile(writePath & "/gamecontrollerdb.txt")
+    # use readFile?
+    # discard gameControllerAddMappingsFromFile(basePath & "/assets/gamecontrollerdb.txt")
+    # discard gameControllerAddMappingsFromFile(writePath & "/gamecontrollerdb.txt")
 
     for i in 0..numJoysticks():
       if isGameController(i):

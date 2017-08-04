@@ -20,7 +20,7 @@ import math
 import sequtils
 import pool
 import vec
-import sndfile
+import nico/sndfile
 
 {.this:self.}
 

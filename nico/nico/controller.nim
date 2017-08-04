@@ -1,5 +1,6 @@
 when not defined(js):
-  import sdl2.sdl
+  import sdl2
+  import sdl2.gamecontroller
 
 type NicoControllerKind* = enum
   Keyboard
@@ -33,7 +34,7 @@ type NicoController* = ref object
   kind*: NicoControllerKind
   name*: string
   when not defined(js):
-    sdlController*: GameController # nil for keyboard
+    sdlController*: GameControllerPtr # nil for keyboard
   id*: int # -1 for keyboard
   axes*: array[NicoAxis, tuple[current, previous: float]]
   buttons*: array[NicoButton, int]
@@ -50,7 +51,7 @@ proc newNicoController*(id: cint): NicoController =
       result.sdlController = gameControllerOpen(id)
       if result.sdlController == nil:
         raise newException(Exception, "error opening game controller: " & $id)
-      result.name = $result.sdlController.gameControllerName()
+      result.name = $result.sdlController.name()
     result.kind = Gamepad
     result.deadzone = 0.50
   else:

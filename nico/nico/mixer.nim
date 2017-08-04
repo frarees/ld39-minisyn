@@ -6,7 +6,8 @@ import math
 import random
 import strutils
 
-import sdl2.sdl
+import sdl2
+import sdl2/audio
 
 export pauseAudio
 
@@ -390,7 +391,7 @@ proc customAudioCallbackWrapper(userdata: pointer, stream: ptr uint8, bytes: cin
 proc setAudioCallback*(cfunc: proc(samples: pointer, nSamples: int)) =
   customAudioCallback = cfunc
 
-  if sdl.init(INIT_AUDIO) != 0:
+  if sdl2.init(INIT_AUDIO) != SdlSuccess:
     raise newException(Exception, "Unable to initialize audio")
 
   var audioSpec: AudioSpec
@@ -425,7 +426,7 @@ proc initMixer*(nChannels: Natural = 16) =
     discard
   else:
     echo "initMixer"
-    if sdl.init(INIT_AUDIO) != 0:
+    if sdl2.init(INIT_AUDIO) != SdlSuccess:
       raise newException(Exception, "Unable to initialize audio")
 
     var audioSpec: AudioSpec
